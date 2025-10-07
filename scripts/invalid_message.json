@@ -1,0 +1,84 @@
+{
+  "inputMode": "Text",
+  "sessionId": "062825750454521",
+  "inputTranscript": "hi",
+  "interpretations": [
+    {
+      "interpretationSource": "Lex",
+      "nluConfidence": 1.0,
+      "intent": {
+        "name": "GreentingIntent",
+        "slots": {},
+        "state": "InProgress",
+        "confirmationState": "None"
+      }
+    },
+    {
+      "interpretationSource": "Lex",
+      "nluConfidence": 0.47,
+      "intent": {
+        "name": "DiningSuggestionsIntent",
+        "slots": {
+          "DATE": null,
+          "CUISINE": null,
+          "EMAIL": null,
+          "DiningTime": null,
+          "NumOfPeople": null,
+          "Location": null
+        },
+        "state": "InProgress",
+        "confirmationState": "None"
+      }
+    },
+    {
+      "interpretationSource": "Lex",
+      "intent": {
+        "name": "FallbackIntent",
+        "slots": {},
+        "state": "InProgress",
+        "confirmationState": "None"
+      }
+    },
+    {
+      "interpretationSource": "Lex",
+      "nluConfidence": 0.43,
+      "intent": {
+        "name": "ThankYouIntent",
+        "slots": {},
+        "state": "InProgress",
+        "confirmationState": "None"
+      }
+    }
+  ],
+  "bot": {
+    "name": "DiningConciergeBot",
+    "version": "DRAFT",
+    "localeId": "en_US",
+    "id": "48LGVHQW9V",
+    "aliasId": "TSTALIASID",
+    "aliasName": "TestBotAlias"
+  },
+  "responseContentType": "text/plain; charset=utf-8",
+  "messageVersion": "1.0",
+  "sessionState": {
+    "originatingRequestId": "6276c8f8-5993-4c51-ade6-011496d57a44",
+    "sessionAttributes": {},
+    "intent": {
+      "name": "GreentingIntent",
+      "slots": {},
+      "state": "InProgress",
+      "confirmationState": "None"
+    }
+  },
+  "invocationSource": "DialogCodeHook",
+  "transcriptions": [
+    {
+      "resolvedContext": {
+        "intent": "GreentingIntent"
+      },
+      "resolvedSlots": {},
+      "transcriptionConfidence": 1.0,
+      "transcription": "hi"
+    }
+  ]
+}
