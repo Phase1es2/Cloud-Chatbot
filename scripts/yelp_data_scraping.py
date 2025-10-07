@@ -1,27 +1,15 @@
 import requests
 import os
 import json
-from settings import LIMITS, LOCATIONS, SUPPORTED_CUISINES, YELP_API_KEY, MAX_RESULTS, YELP_SEARCH_URL, YELP_API_MAP
-
+from datetime import datetime, timezone
+from settings import (LIMITS, LOCATIONS, 
+                      SUPPORTED_CUISINES, YELP_API_KEY, 
+                      MAX_RESULTS, YELP_SEARCH_URL, 
+                      YELP_API_MAP)
+import time
 
 # business_id = '4AErMBEoNzbk7Q8g45kKaQ'
 HEADERS = {'Authorization': 'bearer %s' % YELP_API_KEY}
-
-# 'term' : 'chinese'
-# 'limit' : 'LIMITS'
-# 'location': 'LOCATION'
-
-SUPPORTED_CUISINES = ['Thai', 'Chinese', 'French', 'Japanese', 'Korean', 'Indian', 'American', 'Mexican']
-YELP_API_MAP = {
-    "Thai": "thai",
-    "Chinese": "chinese",
-    "French": "french",
-    "Japanese": "japanese",
-    "Korean": "korean",
-    "Indian": "indpak",
-    "American": "newamerican",
-    "Mexican": "mexican"
-}
 
 def write_file(business_data):
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -40,17 +28,19 @@ def remove_duplicate(restaurants):
     return res
 
 # we only want [Business ID, Name, Address, Coordinates, Number of Reviews, Rating, Zip Code]
-def filter_data(business_data):
+def filter_data(cuisine, business_data):
     cleaned_data = []
     for business in business_data.get("businesses", []):
         data = {
             "id": business.get("id"),
             "name": business.get("name"),
+            "cuisine": cuisine,
             "address": ", ".join(business.get("location", {}).get("display_address", [])),
             "coordinates": business.get("coordinates", {}),
             "review_count": business.get("review_count"),
             "rating": business.get("rating"),
             "zip_code": business.get("location", {}).get("zip_code"),
+            "insertedAtTimestamp": datetime.now(timezone.utc).isoformat()
         }
         cleaned_data.append(data)
     return cleaned_data
@@ -72,21 +62,21 @@ def get_restaurants(cuisine, location = LOCATIONS, max_result=MAX_RESULTS):
         
         # Convert the JSON string'
         business_data = resp.json()
-        cleaned_data = filter_data(business_data)
+        cleaned_data = filter_data(cuisine, business_data)
         cleaned_data = remove_duplicate(cleaned_data)
         data.extend(cleaned_data)
 
         if len(business_data.get("businesses", [])) < LIMITS:
             break
-
+        time.sleep(2)
     return data
 
 if __name__ == "__main__":
     # Example usage
-    cuisine_type_res = {}
+    cuisine_type_res = []
     for cuisine in SUPPORTED_CUISINES:
         data = get_restaurants(cuisine, "Manhattan")
-        cuisine_type_res[cuisine] = data
+        cuisine_type_res.append(data)
         print(f"{cuisine} : {len(data)} entries")
         
     write_file(cuisine_type_res)
