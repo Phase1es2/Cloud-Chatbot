@@ -4,7 +4,8 @@ import re
 from datetime import datetime
 from dateutil import parser
 
-sqs = boto3.client('sqs')
+sqs_client = boto3.client('sqs', region_name='us-east-1')
+SQS_URL = 'https://sqs.us-east-1.amazonaws.com/062825750454/DiningBotQueue'
 
 cuisine_type = ['Thai', 'Chinese', 'French', 'Japanese', 'Korean', 'Indian', 'American', 'Mexican']
 
@@ -140,17 +141,14 @@ def dining_suggestions(intent, slots, event):
     cuisine = safe_get(slots.get('CUISINE'))
     email = safe_get(slots.get('EMAIL'))
 
-    # normalize natural date/time input if provided
     if date_str or time_str:
         date_str, time_str = normalize_date_time(date_str, time_str)
 
-    # Dialog phase (slot filling)
     if event['invocationSource'] == 'DialogCodeHook':
         if location and date_str and time_str and num_people and cuisine and email:
             booking_result = valid_booking(location, date_str, time_str, num_people, cuisine, email)
 
             if not booking_result['isValid']:
-                # Clear the violated slot and re-ask with a **custom message**
                 slots[booking_result['violatedSlot']] = None
                 return elicit_slot(
                     intent,
@@ -158,11 +156,8 @@ def dining_suggestions(intent, slots, event):
                     booking_result['violatedSlot'],
                     booking_result['message']
                 )
-
-        # If no violation, delegate back to Lex
         return delegate(intent, slots)
 
-    # Fulfillment phase
     if event['invocationSource'] == 'FulfillmentCodeHook':
         booking_data = {
             'location': location,
@@ -172,12 +167,14 @@ def dining_suggestions(intent, slots, event):
             'cuisine': cuisine,
             'email': email
         }
-
-
+        sqs_client.send_message(
+            QueueUrl=SQS_URL,
+            MessageBody=json.dumps(booking_data)
+        )
         return close(
             intent,
             slots,
-            "You're all set! Expect my dining suggestions shortly. Have a great day."
+            "You're all set! I’ll send restaurant suggestions shortly."
         )
 
 def greeting():
