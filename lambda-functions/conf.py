@@ -1,0 +1,4 @@
+BOT_ID = '48LGVHQW9V'
+BOT_ALIAS_ID = 'TSTALIASID'
+LOCALE_ID = 'en_US'
+SESSION_ID = "global-session-1"

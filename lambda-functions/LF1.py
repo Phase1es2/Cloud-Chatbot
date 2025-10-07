@@ -4,6 +4,8 @@ import re
 from datetime import datetime
 from dateutil import parser
 
+sqs = boto3.client('sqs')
+
 cuisine_type = ['Thai', 'Chinese', 'French', 'Japanese', 'Korean', 'Indian', 'American', 'Mexican']
 
 def valid_date(date_str, time_str):
@@ -82,39 +84,44 @@ def close(intent, slots, message):
 
 
 def valid_booking(location, date_str, time_str, num_people, cuisine, email):
+    # Only Manhattan is valid
     if location != 'Manhattan':
         return {
             'isValid': False,
             'violatedSlot': 'Location',
-            'message': f"Sorry, we do not have service in {location}, we only provide service in Manhattan now, wher do you want to eat?"
+            'message': f"Sorry, we only support dining reservations in Manhattan. Please confirm if you’d like to book in Manhattan."
         }
 
+    # Date/time must be in the future
     if not valid_date(date_str, time_str):
         return {
             'isValid': False,
             'violatedSlot': 'DATE',
-            'message': 'The date and time of the reservation should be at least 24 hours in advance.'
+            'message': 'The date and time must be in the future. Please provide a valid reservation date and time.'
         }
 
+    # Cuisine check
     if cuisine not in cuisine_type:
         return {
             'isValid': False,
             'violatedSlot': 'CUISINE',
-            'message': f"We do not have {cuisine}, would you like a different type of cuisine?"
+            'message': f"Sorry, we don’t support {cuisine}. Please choose from {', '.join(cuisine_type)}."
         }
 
+    # Party size limit
     if int(num_people) > 20:
         return {
             'isValid': False,
             'violatedSlot': 'NumOfPeople',
-            'message': 'The maximum number of people for a reservation is 20.'
+            'message': 'The maximum number of people for a reservation is 20. Please provide a smaller group size.'
         }
 
-    if not is_valid_email(email):   # <-- FIXED here
+    # Email validation
+    if not is_valid_email(email):
         return {
             'isValid': False,
             'violatedSlot': 'EMAIL',
-            'message': 'The email address is invalid.'
+            'message': 'The email address you entered is invalid. Please provide a valid email.'
         }
 
     return {'isValid': True}
@@ -137,12 +144,13 @@ def dining_suggestions(intent, slots, event):
     if date_str or time_str:
         date_str, time_str = normalize_date_time(date_str, time_str)
 
+    # Dialog phase (slot filling)
     if event['invocationSource'] == 'DialogCodeHook':
-        # run validation only if all slots are filled
         if location and date_str and time_str and num_people and cuisine and email:
             booking_result = valid_booking(location, date_str, time_str, num_people, cuisine, email)
 
             if not booking_result['isValid']:
+                # Clear the violated slot and re-ask with a **custom message**
                 slots[booking_result['violatedSlot']] = None
                 return elicit_slot(
                     intent,
@@ -151,14 +159,25 @@ def dining_suggestions(intent, slots, event):
                     booking_result['message']
                 )
 
-
+        # If no violation, delegate back to Lex
         return delegate(intent, slots)
 
+    # Fulfillment phase
     if event['invocationSource'] == 'FulfillmentCodeHook':
+        booking_data = {
+            'location': location,
+            'date': date_str,
+            'time': time_str,
+            'num_people': num_people,
+            'cuisine': cuisine,
+            'email': email
+        }
+
+
         return close(
             intent,
             slots,
-            "You're all set. Expect my suggestions shortly! Have a good day."
+            "You're all set! Expect my dining suggestions shortly. Have a great day."
         )
 
 def greeting():
