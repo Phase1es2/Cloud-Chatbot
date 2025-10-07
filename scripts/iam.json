@@ -1,0 +1,26 @@
+// for sqs LF1
+
+{
+	"Version": "2012-10-17",
+	"Statement": [
+		{
+			"Effect": "Allow",
+			"Action": "sqs:SendMessage",
+			"Resource": "arn:aws:sqs:us-east-1:062825750454:DiningBotQueue"
+		}
+	]
+}
+// for Lex LF0
+
+{
+	"Version": "2012-10-17",
+	"Statement": [
+		{
+			"Effect": "Allow",
+			"Action": [
+				"lex:RecognizeText"
+			],
+			"Resource": "arn:aws:lex:us-east-1:062825750454:bot-alias/48LGVHQW9V/TSTALIASID"
+		}
+	]
+}
