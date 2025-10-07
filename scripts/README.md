@@ -131,6 +131,65 @@ This guide walks through deploying the Dining Concierge Chatbot using **Amazon S
 3. **Frontend integration**  
    - Returns Lex’s response in `unstructured` format so the frontend chat client can display it correctly.  
 
+## 5. Use the Yelp API to collect 1000+ random restaurants from Manhattan
+
+1. **Get Yelp API Key**  
+   - Go to [Yelp Developer Portal](https://docs.developer.yelp.com/) and create an API key.  
+   - Reference: [Yelp Business Search API](https://docs.developer.yelp.com/reference/v3_business_search)  
+
+   ```
+   GET https://api.yelp.com/v3/businesses/search
+   ```
+
+2. **Setup Python Script**  
+   - Store your API key and configure request headers:  
+     ```python
+     HEADERS = {'Authorization': 'bearer %s' % API_KEY}
+     YELP_SEARCH_URL = "https://api.yelp.com/v3/businesses/search"
+     ```
+   - Define supported cuisines and map them to Yelp category aliases:  
+     ```python
+     SUPPORTED_CUISINES = ['Thai', 'Chinese', 'French', 'Japanese', 'Korean', 'Indian', 'American', 'Mexican']
+     YELP_API_MAP = {
+         "Thai": "thai",
+         "Chinese": "chinese",
+         "French": "french",
+         "Japanese": "japanese",
+         "Korean": "korean",
+         "Indian": "indpak",
+         "American": "newamerican",
+         "Mexican": "mexican"
+     }
+     ```
+
+3. **Collect Data with Pagination**  
+   - Use parameters for paginated search (max 50 results per request):  
+     ```python
+     PARAMETERS = {
+         "categories": alias,
+         "limit": 50,
+         "offset": offset,
+         "location": location
+     }
+     ```
+   - Loop with increasing `offset` to collect up to 1000 results per cuisine.  
+   - Use `filter_data()` to extract only the required fields:  
+     - Business ID  
+     - Name  
+     - Address  
+     - Coordinates  
+     - Number of Reviews  
+     - Rating  
+     - Zip Code  
+
+4. **Save Data to JSON**  
+   - Deduplicate restaurants by `id` to avoid repeats.  
+   - Write results to a JSON file:  
+     ```python
+     with open("restaurants.json", "w", encoding="utf-8") as f:
+         json.dump(cleaned_data, f, indent=4, ensure_ascii=False)
+     ```
+
 ---
 
 With this setup:  
