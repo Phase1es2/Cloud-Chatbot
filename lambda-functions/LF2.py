@@ -1,25 +1,69 @@
 import json
 import boto3
+import random
 from decimal import Decimal
+from opensearchpy import OpenSearch, RequestsHttpConnection, AWSV4SignerAuth, helpers
 
+
+region = "us-east-1"
 # Dynamodb
-dynamodb = boto3.resource("dynamodb", region_name="us-east-1")
+dynamodb = boto3.resource("dynamodb", region_name=region)
 table = dynamodb.Table("yelp-restaurants")
 
 #ses email
-ses = boto3.client("ses", region_name="us-east-1") 
+ses = boto3.client("ses", region_name=region)
+host = 'search-majin-chatbot-dnojun24h7dfxxmq43gh36xxxm.aos.us-east-1.on.aws'
+credentials = boto3.Session().get_credentials()
+auth = AWSV4SignerAuth(credentials, region)
 
-def send_email():
+opensearch_client = OpenSearch(
+    hosts = [{'host': host, 'port': 443}],
+    http_auth = auth,
+    use_ssl = True,
+    verify_certs = True,
+    connection_class = RequestsHttpConnection,
+)
+
+
+
+def elastic_query(cuisine):
+    query = {
+        "query": {
+            "bool": {
+                "must": [
+                    {"match": {"Cuisine": cuisine}}
+                ]
+            }
+        },
+        "size": 100
+    }
+    response = opensearch_client.search(index="restaurants", body=query)
+    
+    ids = [hit["_source"] for hit in response["hits"]["hits"]]
+    sample_ids = random.sample(ids, min(5, len(ids)))
+    # print(sample_ids)
+    return sample_ids
+
+def format_email(restaurant):
+    lines = ["Here are the restaurant recommendations:\n"]
+    for r in restaurant:
+        line = f"- {r['name']} ({r['rating']})\n {r['address']}"
+        lines.append(line)
+    return "\n".join(lines)
+
+
+def send_email(restaurant):
+    body_text = format_email(restaurant)
     response = ses.send_email(
         Source="hyangcaa17@gmail.com", 
         Destination={
             "ToAddresses": ["hy3169@nyu.edu"],  
         },
         Message={
-            "Subject": {"Data": "Test Email from SES", "Charset": "UTF-8"},
+            "Subject": {"Data": "Your restaurant Recommnedations", "Charset": "UTF-8"},
             "Body": {
                 "Text": {
-                    "Data": "Hello! This is a test email sent via Amazon SES.",
+                    "Data": body_text,
                     "Charset": "UTF-8"
                 }
             }
@@ -28,26 +72,57 @@ def send_email():
     print("Email sent! Message ID:", response["MessageId"])
     return response
 
-def test_get_item():
-    restaurants_id = "-OixbLnFLCzQclxCSbUQ8w"
-    
-    resp = table.get_item(Key={"id": restaurants_id})
-    if "Item" in resp:
-        item = resp["Item"]
-        print("Restaurant found:")
-        print(item)
+
+def filter_list(restaurant):
+    filted = []
+    for r in restaurant:
+        filted.append({
+            "name": r["name"],
+            "address": r["address"],
+            "rating": r["rating"]
+        })
+    return filted
+
+def convert_decimal(obj):
+    if isinstance(obj, list):
+        return [convert_decimal(i) for i in obj]
+    elif isinstance(obj, dict):
+        return {k: convert_decimal(v) for k, v in obj.items()}
+    elif isinstance(obj, Decimal):
+        if obj % 1 == 0:
+            return int(obj)
+        else:
+            return float(obj)
     else:
-        print("Restaurant not found.")
+        return obj
+
+def dynamodb_query(raw_ids):
+    recommendations_list = []
+    for entry in raw_ids:
+        restaurant_id = entry["RestaurantID"]
+        resp = table.get_item(Key={"id": restaurant_id})
+        if "Item" in resp:
+            item = resp["Item"]
+            item = convert_decimal(item)
+            recommendations_list.append(item)
+
+    return recommendations_list
 
 def lambda_handler(event, context):
     # TODO implement
-    item = test_get_item()
-    email_resp = send_email()
+    # item = test_get_item()
+    # email_resp = send_email()
+    recommendations_list_raw = elastic_query("Chinese")
+    recommendations_list = dynamodb_query(recommendations_list_raw)
+    res_list = filter_list(recommendations_list)
+    print(res_list)
+    email_resp = send_email(recommendations_list)
     return {
         'statusCode': 200,
         'body': json.dumps({
             "message": "Lambda exectued",
-            "restaurant": item,
-            "email_message_id": email_resp["MessageId"]
+            "restaurant": recommendations_list,
+            # "search_result": search_resp,
+            # "email_message_id": email_resp["MessageId"]
         })
     }
