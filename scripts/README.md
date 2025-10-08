@@ -189,6 +189,70 @@ This guide walks through deploying the Dining Concierge Chatbot using **Amazon S
      with open("restaurants.json", "w", encoding="utf-8") as f:
          json.dump(cleaned_data, f, indent=4, ensure_ascii=False)
      ```
+5. **Set DynamoDB**
+   - create "yelp-resaurants" table in DynamoDB
+   - using load_dynamodb.py to upload the json file to dynamodb
+   - it does not support float type, change it to Decimal
+
+---
+
+## 6. Set up OpenSearch for Restaurant Data
+
+1. **Set DynamoDB**  
+- Create a DynamoDB table called **`yelp-restaurants`**.  
+- Use `load_dynamodb.py` to upload the `restaurants.json` file.  
+- Since DynamoDB does not support float type, convert rating and coordinates to **`Decimal`** before inserting.  
+
+2. **Set OpenSearch**  
+- Create an OpenSearch (Amazon Elasticsearch) instance.  
+- Enable **fine-grained access control** and set a master user with username/password.  
+
+3. **Create Index and Upload**  
+- Create an index named **`restaurants`**.  
+- Use `opensearch_client.py` to filter JSON data into `RestaurantID` and `Cuisine` fields.  
+- Configure AWS CLI credentials (`aws configure`) with your IAM role’s access key/secret.  
+- Use the bulk helper in `opensearch_client.py` to upload the data.  
+
+---
+
+## 7. Build a Suggestions Model (LF2)
+
+1. **Create LF2 (Lambda Function 2)**  
+- This function is decoupled from Lex, LF0, LF1, and SQS.  
+- For testing, hard-code `{"Cuisine": "Chinese"}` and use:  
+  - `elastic_query(cuisine)`: Fetch up to 100 matching restaurants from OpenSearch, randomly select 5 IDs.  
+  - `dynamodb_query(raw_ids)`: Use these IDs to fetch full details from DynamoDB.  
+- Filter restaurant info to only include **name, address, and rating**.  
+
+2. **Set up SES (Email Service)**  
+- Go to **SES > Configuration > Identities** and create 2 identities with your emails.  
+- Verify both emails (sender + receiver).  
+- In LF2, create a function that sends a test email with SES.  
+
+3. **Integrate with LF0, LF1, S3, Lex, and SQS**  
+- Ensure all services from earlier sections are running.  
+- Add **SQS trigger** to LF2 and update its IAM role with SQS permissions.  
+- Manually send a booking request from the frontend → message goes into SQS.  
+- LF2 polls SQS, queries OpenSearch + DynamoDB, and sends results via SES.  
+- Format the email as:  
+  ```
+  Hi, here are dining suggestions for you:
+  - Cuisine: Chinese
+  - Date: 2025-10-10
+  - Time: 18:00
+  - Party size: 2
+
+  Restaurant recommendations:
+  - Xi’an Famous Foods (4.6)
+    309 Amsterdam Ave, New York, NY 10023
+  ```
+
+4. **EventBridge Scheduler**  
+- Set up an **EventBridge Scheduler** to invoke LF2 every minute.  
+- This ensures LF2 polls the queue automatically.  
+- Verify in **CloudWatch Logs** that LF2 executes every minute.  
+
+
 
 ---
 
