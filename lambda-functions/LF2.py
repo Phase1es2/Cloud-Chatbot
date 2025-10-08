@@ -150,23 +150,21 @@ def dispath_message(sqs_message):
     return cuisine, email, party, date, time
 
 def lambda_handler(event, context):
-    # TODO implement
-    sqs_message = poll_message()[0]
-    cuisine, email, party, date, time = dispath_message(sqs_message)
-    # item = test_get_item()
-    # email_resp = send_email()
-    recommendations_list_raw = elastic_query(cuisine)
-    recommendations_list = dynamodb_query(recommendations_list_raw)
-    res_list = filter_list(recommendations_list)
-    print(res_list)
-    email_resp = send_email(recommendations_list, cuisine, email, party, date, time)
-    return {
-        'statusCode': 200,
-        'body': json.dumps({
-            "message": "Lambda exectued",
-            # "restaurant": recommendations_list,
-            # "search_result": search_resp,
-            # "email_message_id": email_resp["MessageId"]
-            "sqs_message": sqs_message
-        })
-    }
+    sqs_messages = []
+
+    sqs_messages = poll_message()
+
+    if not sqs_messages:
+        print("No messages to process")
+        return {"statusCode": 200, "body": json.dumps({"message": "No messages"})}
+
+    for sqs_message in sqs_messages:
+        cuisine, email, party, date, time = dispath_message(sqs_message)
+
+        recommendations_list_raw = elastic_query(cuisine)
+        recommendations_list = dynamodb_query(recommendations_list_raw)
+        res_list = filter_list(recommendations_list)
+
+        send_email(res_list, cuisine, email, party, date, time)
+
+    return {"statusCode": 200, "body": json.dumps({"message": "Processed"})}
