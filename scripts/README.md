@@ -256,8 +256,16 @@ This guide walks through deploying the Dining Concierge Chatbot using **Amazon S
 
 ---
 
-With this setup:  
-- The frontend is hosted on S3.  
-- API Gateway + LF0 connects the frontend to Lex.  
-- Lex handles intents and slot-filling with LF1.  
-- Validated bookings are sent to SQS.  
+
+With this setup:
+
+- **Frontend (S3)**: Static website hosted on Amazon S3.  
+- **API Gateway + LF0**: Connects the frontend to Lex. LF0 acts as the entry point.  
+- **Lex + LF1**: Lex handles natural language input, slot filling, and validation. LF1 is the fulfillment Lambda that validates slots (e.g., email, date, time).  
+- **SQS**: Validated booking requests from LF1 are pushed to the SQS queue.  
+- **SES**: Sends the dining recommendation email to the user.  
+- **DynamoDB**: Stores full restaurant details (name, address, rating, coordinates, etc.).  
+- **OpenSearch**: Stores only restaurant IDs and cuisine types for fast search and filtering.  
+- **LF2**: A worker Lambda that polls messages from SQS, queries OpenSearch + DynamoDB, formats recommendations, and sends them to the user via SES.  
+- **EventBridge Scheduler**: Automates LF2 invocation every minute, ensuring the queue is processed continuously.  
+The flow looks like this:
