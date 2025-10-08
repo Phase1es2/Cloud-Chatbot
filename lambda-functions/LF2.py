@@ -12,6 +12,8 @@ table = dynamodb.Table("yelp-restaurants")
 
 #ses email
 ses = boto3.client("ses", region_name=region)
+
+# opensearch
 host = 'search-majin-chatbot-dnojun24h7dfxxmq43gh36xxxm.aos.us-east-1.on.aws'
 credentials = boto3.Session().get_credentials()
 auth = AWSV4SignerAuth(credentials, region)
@@ -24,6 +26,30 @@ opensearch_client = OpenSearch(
     connection_class = RequestsHttpConnection,
 )
 
+# sqs
+sqs_client = boto3.client('sqs', region_name='us-east-1')
+SQS_URL = 'https://sqs.us-east-1.amazonaws.com/062825750454/majin-dining-queue'
+
+def poll_message():
+    resp = sqs_client.receive_message(
+        QueueUrl=SQS_URL,
+        MaxNumberOfMessages=1,
+        WaitTimeSeconds=2
+    )
+
+    if "Messages" not in resp:
+        print("No messages found")
+        return []
+    message = []
+    for msg in resp["Messages"]:
+        body = json.loads(msg["Body"])
+        message.append(body)
+
+        sqs_client.delete_message(
+            QueueUrl=SQS_URL,
+            ReceiptHandle=msg["ReceiptHandle"]
+        )
+    return message
 
 
 def elastic_query(cuisine):
@@ -44,23 +70,30 @@ def elastic_query(cuisine):
     # print(sample_ids)
     return sample_ids
 
-def format_email(restaurant):
-    lines = ["Here are the restaurant recommendations:\n"]
+def format_email(restaurant, cuisine, date, time, party):
+    lines = [
+        f"Hi, here are dining suggestions for you:",
+        f"- Cuisine: {cuisine}",
+        f"- Date: {date}",
+        f"- Time: {time}",
+        f"- Party size: {party}",
+        "",
+        "Restaurant recommendations:\n"
+    ]
     for r in restaurant:
-        line = f"- {r['name']} ({r['rating']})\n {r['address']}"
+        line = f"- {r['name']} ({r['rating']})\n  {r['address']}"
         lines.append(line)
     return "\n".join(lines)
 
-
-def send_email(restaurant):
-    body_text = format_email(restaurant)
+def send_email(restaurant, cuisine, email, party, date, time):
+    body_text = format_email(restaurant, cuisine, date, time, party)
     response = ses.send_email(
         Source="hyangcaa17@gmail.com", 
         Destination={
-            "ToAddresses": ["hy3169@nyu.edu"],  
+            "ToAddresses": [email],   # send to the user’s email
         },
         Message={
-            "Subject": {"Data": "Your restaurant Recommnedations", "Charset": "UTF-8"},
+            "Subject": {"Data": f"Your {cuisine} dining suggestions", "Charset": "UTF-8"},
             "Body": {
                 "Text": {
                     "Data": body_text,
@@ -108,21 +141,32 @@ def dynamodb_query(raw_ids):
 
     return recommendations_list
 
+def dispath_message(sqs_message):
+    cuisine = sqs_message["cuisine"]
+    email = sqs_message["email"]
+    party = sqs_message["num_people"]
+    date = sqs_message["date"]
+    time = sqs_message["time"]
+    return cuisine, email, party, date, time
+
 def lambda_handler(event, context):
     # TODO implement
+    sqs_message = poll_message()[0]
+    cuisine, email, party, date, time = dispath_message(sqs_message)
     # item = test_get_item()
     # email_resp = send_email()
-    recommendations_list_raw = elastic_query("Chinese")
+    recommendations_list_raw = elastic_query(cuisine)
     recommendations_list = dynamodb_query(recommendations_list_raw)
     res_list = filter_list(recommendations_list)
     print(res_list)
-    email_resp = send_email(recommendations_list)
+    email_resp = send_email(recommendations_list, cuisine, email, party, date, time)
     return {
         'statusCode': 200,
         'body': json.dumps({
             "message": "Lambda exectued",
-            "restaurant": recommendations_list,
+            # "restaurant": recommendations_list,
             # "search_result": search_resp,
             # "email_message_id": email_resp["MessageId"]
+            "sqs_message": sqs_message
         })
     }
