@@ -5,7 +5,7 @@ from datetime import datetime
 from dateutil import parser
 
 sqs_client = boto3.client('sqs', region_name='us-east-1')
-SQS_URL = 'https://sqs.us-east-1.amazonaws.com/062825750454/DiningBotQueue'
+SQS_URL = 'https://sqs.us-east-1.amazonaws.com/062825750454/majin-dining-queue'
 
 cuisine_type = ['Thai', 'Chinese', 'French', 'Japanese', 'Korean', 'Indian', 'American', 'Mexican']
 
@@ -230,7 +230,7 @@ def lambda_handler(event, context):
     slots = event['sessionState']['intent']['slots']
     intent = event['sessionState']['intent']['name']
 
-    print(bot)
-    print(slots)
-    print(intent)
+    # print(bot)
+    # print(slots)
+    # print(intent)
     return handle_intent(intent, slots, event)

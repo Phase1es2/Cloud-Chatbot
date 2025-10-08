@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 
 lex_bot = boto3.client('lexv2-runtime')
 
-BOT_ID = '48LGVHQW9V'
+BOT_ID = 'DGCXXCOACM'
 BOT_ALIAS_ID = 'TSTALIASID'
 LOCALE_ID = 'en_US'
 # there is a bug, that if I do not use fixed session_id, it will keep jump back to ask for city name.
